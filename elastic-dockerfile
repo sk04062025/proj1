@@ -1,0 +1,20 @@
+# Create this as logstash/Dockerfile
+FROM docker.elastic.co/logstash/logstash:8.11.0
+
+# Switch to root user to install plugins
+USER root
+
+# Copy the offline plugin files (you'll download these manually)
+COPY plugins/ /tmp/plugins/
+
+# Install the JDBC plugin offline
+RUN /usr/share/logstash/bin/logstash-plugin install file:///tmp/plugins/logstash-input-jdbc-5.4.6.gem
+
+# Copy PostgreSQL JDBC driver
+COPY drivers/postgresql-42.6.0.jar /usr/share/logstash/drivers/
+
+# Switch back to logstash user
+USER logstash
+
+# Set the default command
+CMD ["/usr/share/logstash/bin/logstash", "-f", "/usr/share/logstash/pipeline/logstash.conf"]
