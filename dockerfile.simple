@@ -1,0 +1,17 @@
+# Dockerfile.simple
+FROM docker.elastic.co/logstash/logstash:8.11.0
+
+USER root
+
+# Install plugin with SSL verification disabled
+ENV SSL_VERIFY_NONE=1
+RUN /usr/share/logstash/bin/logstash-plugin install --no-verify logstash-input-jdbc
+
+# Download driver with SSL bypass
+RUN mkdir -p /usr/share/logstash/drivers && \
+    curl -k -L -o /usr/share/logstash/drivers/postgresql-42.6.0.jar \
+        https://jdbc.postgresql.org/download/postgresql-42.6.0.jar && \
+    chown -R logstash:logstash /usr/share/logstash/drivers && \
+    chmod 644 /usr/share/logstash/drivers/*.jar
+
+USER logstash
