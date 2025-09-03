@@ -1,0 +1,16 @@
+# Dockerfile.alternative
+FROM logstash:8.11.0-oss
+
+USER root
+
+# OSS version might have different SSL configuration
+RUN /usr/share/logstash/bin/logstash-plugin install logstash-input-jdbc
+
+# Download PostgreSQL driver
+RUN mkdir -p /usr/share/logstash/drivers && \
+    curl -L -o /usr/share/logstash/drivers/postgresql-42.6.0.jar \
+        https://jdbc.postgresql.org/download/postgresql-42.6.0.jar && \
+    chown -R logstash:logstash /usr/share/logstash/drivers && \
+    chmod 644 /usr/share/logstash/drivers/*.jar
+
+USER logstash
