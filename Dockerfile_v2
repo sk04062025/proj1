@@ -1,30 +1,36 @@
-# Dockerfile
+# Start with your base Logstash image
 FROM docker.elastic.co/logstash/logstash:8.11.0
 
-# Switch to root user to install plugins and make system changes
-USER root
+# 1. (Optional but recommended) Install ca-certificates and openssl in case they are missing
+#    Logstash images are usually fairly lean.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install the JDBC input plugin
+# 2. Copy your company's CA certificates into the container
+#    Place your .crt files in the same directory as your Dockerfile or adjust the path.
+COPY company_root.crt /usr/local/share/ca-certificates/company_root.crt
+COPY company_intermediate.crt /usr/local/share/ca-certificates/company_intermediate.crt
+
+# 3. Update the system's CA trust store
+RUN update-ca-certificates
+
+# 4. Import certificates into the Java Keystore (cacerts)
+#    This is crucial for Logstash itself and potentially for the plugin manager.
+#    Find the JAVA_HOME - it's usually /usr/share/logstash/jdk
+#    The default password for cacerts is 'changeit'
+ENV JAVA_CACERTS /usr/share/logstash/jdk/lib/security/cacerts
+
+# Import root certificate
+RUN keytool -import -trustcacerts -keystore $JAVA_CACERTS -storepass changeit \
+    -file /usr/local/share/ca-certificates/company_root.crt -alias companyroot -noprompt
+
+# Import intermediate certificate
+RUN keytool -import -trustcacerts -keystore $JAVA_CACERTS -storepass changeit \
+    -file /usr/local/share/ca-certificates/company_intermediate.crt -alias companyintermediate -noprompt
+
+# 5. Now try to install the plugin
+#    It's generally recommended to install plugins at build time.
 RUN /usr/share/logstash/bin/logstash-plugin install logstash-input-jdbc
-
-# Create directory for JDBC drivers
-RUN mkdir -p /usr/share/logstash/drivers
-
-# Download PostgreSQL JDBC driver directly into the image
-RUN curl -L -o /usr/share/logstash/drivers/postgresql-42.6.0.jar \
-    https://jdbc.postgresql.org/download/postgresql-42.6.0.jar
-
-# Set proper permissions for the drivers directory
-RUN chown -R logstash:logstash /usr/share/logstash/drivers
-RUN chmod 644 /usr/share/logstash/drivers/*.jar
-
-# Verify plugin installation
-RUN /usr/share/logstash/bin/logstash-plugin list | grep jdbc
-
-# Switch back to logstash user for security
-USER logstash
-
-# Add labels for better image management
-LABEL maintainer="your-team@company.com"
-LABEL version="8.11.0-jdbc"
-LABEL description="Logstash 8.11.0 with JDBC input plugin and PostgreSQL driver"
