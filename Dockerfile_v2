@@ -17,20 +17,20 @@ COPY company_intermediate.crt /usr/local/share/ca-certificates/company_intermedi
 # 3. Update the system's CA trust store
 RUN update-ca-certificates
 
-# 4. Import certificates into the Java Keystore (cacerts)
-#    This is crucial for Logstash itself and potentially for the plugin manager.
-#    Find the JAVA_HOME - it's usually /usr/share/logstash/jdk
-#    The default password for cacerts is 'changeit'
-ENV JAVA_CACERTS /usr/share/logstash/jdk/lib/security/cacerts
+# --- FIX: Specify the full path to keytool and cacerts ---
+
+# 4. Define the full path to keytool and the cacerts file
+ENV LOGSTASH_JDK_HOME /usr/share/logstash/jdk
+ENV JAVA_CACERTS $LOGSTASH_JDK_HOME/lib/security/cacerts
+ENV KEYTOOL_PATH $LOGSTASH_JDK_HOME/bin/keytool
 
 # Import root certificate
-RUN keytool -import -trustcacerts -keystore $JAVA_CACERTS -storepass changeit \
+RUN $KEYTOOL_PATH -import -trustcacerts -keystore $JAVA_CACERTS -storepass changeit \
     -file /usr/local/share/ca-certificates/company_root.crt -alias companyroot -noprompt
 
 # Import intermediate certificate
-RUN keytool -import -trustcacerts -keystore $JAVA_CACERTS -storepass changeit \
+RUN $KEYTOOL_PATH -import -trustcacerts -keystore $JAVA_CACERTS -storepass changeit \
     -file /usr/local/share/ca-certificates/company_intermediate.crt -alias companyintermediate -noprompt
 
 # 5. Now try to install the plugin
-#    It's generally recommended to install plugins at build time.
 RUN /usr/share/logstash/bin/logstash-plugin install logstash-input-jdbc
